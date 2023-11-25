@@ -14,7 +14,7 @@ using GHPC.Vehicle;
 using GHPC.Camera;
 using GHPC.Player;
 
-[assembly: MelonInfo(typeof(USReducedLethalityMod), "US Reduced Lethality", "1.0.0", "ATLAS")]
+[assembly: MelonInfo(typeof(USReducedLethalityMod), "US Reduced Lethality", "1.0.1", "ATLAS")]
 [assembly: MelonGame("Radian Simulations LLC", "GHPC")]
 
 namespace USReducedLethality
@@ -106,7 +106,7 @@ namespace USReducedLethality
                 ammo_m392 = new AmmoType();
                 Util.ShallowCopy(ammo_m392, ammo_m833);
                 ammo_m392.Name = "M392A2 APDS-T";
-                ammo_m392.RhaPenetration = 330;
+                ammo_m392.RhaPenetration = 310f;
                 ammo_m392.MuzzleVelocity = 1478f;
                 ammo_m392.Mass = 4.04f;
 
@@ -128,15 +128,20 @@ namespace USReducedLethality
                 ammo_m393 = new AmmoType();
                 Util.ShallowCopy(ammo_m393, ammo_m456);
                 ammo_m393.Name = "M393A2 HEP-T";
-                ammo_m393.RhaPenetration = 40f;
+                ammo_m393.RhaPenetration = 30f;
                 ammo_m393.MuzzleVelocity = 731.5f;
                 ammo_m393.Mass = 11.3f;
                 ammo_m393.TntEquivalentKg = 3.26f;
-                ammo_m393.MinSpallRha = 15f;
-                ammo_m393.MaxSpallRha = 65f;
+                ammo_m393.CertainRicochetAngle = 5f; 
+                ammo_m393.MinSpallRha = 20f;
+                ammo_m393.MaxSpallRha = 50f;
                 ammo_m393.Coeff = 0.26f;
                 ammo_m393.Category = AmmoType.AmmoCategory.Explosive;
                 ammo_m393.ShatterOnRicochet = false;
+                ammo_m393.ImpactFuseTime = 0.005f;
+                ammo_m393.SpallMultiplier = 2;
+                ammo_m393.DetonateSpallCount = 80;
+                ammo_m393.ForcedSpallAngle = 0; 
                 ammo_m393.ImpactTypeFuzed = ParticleEffectsManager.EffectVisualType.MainGunImpactHighExplosive;
                 ammo_m393.ImpactTypeFuzedTerrain = ParticleEffectsManager.EffectVisualType.MainGunImpactExplosiveTerrain;
                 ammo_m393.ImpactTypeUnfuzed = ParticleEffectsManager.EffectVisualType.MainGunImpactHighExplosive;
