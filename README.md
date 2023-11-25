@@ -9,3 +9,5 @@ M60A1/3:
 - M392A2 APDS-T
 - M456 HEAT-FS-T
 - M393A2 HEP-T 
+
+https://github.com/thebeninator/US-Reduced-Lethality/releases/latest
