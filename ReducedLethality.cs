@@ -14,24 +14,36 @@ using GHPC.Vehicle;
 using GHPC.Camera;
 using GHPC.Player;
 
-[assembly: MelonInfo(typeof(USReducedLethalityMod), "US Reduced Lethality", "1.0.1", "ATLAS")]
+[assembly: MelonInfo(typeof(USReducedLethalityMod), "US Reduced Lethality", "1.1.1", "ATLAS")]
 [assembly: MelonGame("Radian Simulations LLC", "GHPC")]
 
 namespace USReducedLethality
 {
     public class USReducedLethalityMod : MelonMod
     {
+        MelonPreferences_Category cfg;
+        MelonPreferences_Entry<string> m60a1_ap;
+        MelonPreferences_Entry<string> m60a3_ap;
+        MelonPreferences_Entry<string> m1_ap;
+        MelonPreferences_Entry<string> m1ip_ap;
+
         private GameObject[] vic_gos;
         private GameObject game_manager;
         private PlayerInput player_manager;
         private CameraManager camera_manager;
         private string[] invalid_scenes = new string[] {"MainMenu2_Scene", "LOADER_MENU", "LOADER_INITIAL", "t64_menu"};
 
-        // apds 
+        // m392 
         private AmmoClipCodexScriptable clip_codex_m392;
         private AmmoType.AmmoClip clip_m392;
         private AmmoCodexScriptable ammo_codex_m392;
         private AmmoType ammo_m392;
+
+        // m735
+        private AmmoClipCodexScriptable clip_codex_m735;
+        private AmmoType.AmmoClip clip_m735;
+        private AmmoCodexScriptable ammo_codex_m735;
+        private AmmoType ammo_m735;
 
         // hep 
         private AmmoClipCodexScriptable clip_codex_m393;
@@ -44,9 +56,21 @@ namespace USReducedLethality
 
         private GameObject ammo_m392_vis = null;
         private GameObject ammo_m393_vis = null;
+        private GameObject ammo_m735_vis = null;
 
         // m774
-        private AmmoClipCodexScriptable clip_codex_m774; 
+        private AmmoClipCodexScriptable clip_codex_m774;
+
+
+        public override void OnInitializeMelon()
+        {
+            cfg = MelonPreferences.CreateCategory("US Reduced Lethality");
+            m60a1_ap = cfg.CreateEntry<string>("M60A1 AP", "M392");
+            m60a1_ap.Description = "AP round used by M60s and M1s: M774, M735, M392";
+            m60a3_ap = cfg.CreateEntry<string>("M60A3 AP", "M392");
+            m1_ap = cfg.CreateEntry<string>("M1 AP", "M774");
+            m1ip_ap = cfg.CreateEntry<string>("M1IP AP", "M774");
+        }
 
         // fix for GAS reticle
         public override void OnUpdate()
@@ -70,7 +94,6 @@ namespace USReducedLethality
                 reticle.SetActive(true);
             }
         }
-
 
         public override async void OnSceneWasInitialized(int buildIndex, string sceneName)
         {
@@ -161,7 +184,35 @@ namespace USReducedLethality
                 clip_codex_m393 = ScriptableObject.CreateInstance<AmmoClipCodexScriptable>();
                 clip_codex_m393.name = "clip_m393";
                 clip_codex_m393.ClipType = clip_m393;
+
+                // m735 
+                ammo_m735 = new AmmoType();
+                Util.ShallowCopy(ammo_m735, ammo_m833);
+                ammo_m735.Name = "M735 APFSDS-T";
+                ammo_m735.RhaPenetration = 400f;
+                ammo_m735.MuzzleVelocity = 1501f;
+                ammo_m735.Mass = 2.16f;
+
+                ammo_codex_m735 = ScriptableObject.CreateInstance<AmmoCodexScriptable>();
+                ammo_codex_m735.AmmoType = ammo_m735;
+                ammo_codex_m735.name = "ammo_m735";
+
+                clip_m735 = new AmmoType.AmmoClip();
+                clip_m735.Capacity = 1;
+                clip_m735.Name = "M735 APFSDS-T";
+                clip_m735.MinimalPattern = new AmmoCodexScriptable[1];
+                clip_m735.MinimalPattern[0] = ammo_codex_m735;
+
+                clip_codex_m735 = ScriptableObject.CreateInstance<AmmoClipCodexScriptable>();
+                clip_codex_m735.name = "clip_m735";
+                clip_codex_m735.ClipType = clip_m735;
             }
+
+            var ap_rounds = new Dictionary<string, AmmoClipCodexScriptable>() {
+                ["M774"] = clip_codex_m774,
+                ["M735"] = clip_codex_m735,
+                ["M392"] = clip_codex_m392
+            };
 
             foreach (GameObject vic_go in vic_gos)
             {
@@ -178,12 +229,20 @@ namespace USReducedLethality
                     ammo_m392.VisualModel.GetComponent<AmmoStoredVisual>().AmmoType = ammo_m392;
                     ammo_m392.VisualModel.GetComponent<AmmoStoredVisual>().AmmoScriptable = ammo_codex_m392;
 
+                    ammo_m735_vis = GameObject.Instantiate(ammo_m833.VisualModel);
+                    ammo_m735_vis.name = "M735 visual";
+                    ammo_m735.VisualModel = ammo_m735_vis;
+                    ammo_m735.VisualModel.GetComponent<AmmoStoredVisual>().AmmoType = ammo_m735;
+                    ammo_m735.VisualModel.GetComponent<AmmoStoredVisual>().AmmoScriptable = ammo_codex_m735;
+
                     ammo_m393_vis = GameObject.Instantiate(ammo_m456.VisualModel);
                     ammo_m393_vis.name = "M393 visual";
                     ammo_m393.VisualModel = ammo_m393_vis;
                     ammo_m393.VisualModel.GetComponent<AmmoStoredVisual>().AmmoType = ammo_m393;
                     ammo_m393.VisualModel.GetComponent<AmmoStoredVisual>().AmmoScriptable = ammo_codex_m393;
                 }
+
+                string name = vic.FriendlyName;
 
                 WeaponsManager weaponsManager = vic.GetComponent<WeaponsManager>();
                 WeaponSystemInfo mainGunInfo = weaponsManager.Weapons[0];
@@ -195,18 +254,20 @@ namespace USReducedLethality
 
                 AmmoClipCodexScriptable clip_codex_m456 = loadoutManager.LoadedAmmoTypes[1];
 
-                if (vic.FriendlyName == "M60A3 TTS" || vic.FriendlyName == "M60A1 RISE (Passive)") {
+                if (name == "M60A3 TTS" || name == "M60A1 RISE (Passive)") {
+                    AmmoClipCodexScriptable ap = ap_rounds[name == "M60A3 TTS" ? m60a3_ap.Value : m60a1_ap.Value];
                     loadoutManager.TotalAmmoCounts = new int[] {30, 23, 10};
-                    loadoutManager.LoadedAmmoTypes = new AmmoClipCodexScriptable[] {clip_codex_m392, clip_codex_m456, clip_codex_m393};
-                    ammo_clip_types = new AmmoType.AmmoClip[] {clip_m392, clip_codex_m456.ClipType, clip_m393};
+                    loadoutManager.LoadedAmmoTypes = new AmmoClipCodexScriptable[] {ap, clip_codex_m456, clip_codex_m393};
+                    ammo_clip_types = new AmmoType.AmmoClip[] {ap.ClipType, clip_codex_m456.ClipType, clip_m393};
 
                     FieldInfo total_ammo_types = typeof(LoadoutManager).GetField("_totalAmmoTypes", BindingFlags.NonPublic | BindingFlags.Instance);
                     total_ammo_types.SetValue(loadoutManager, 3);
                 }
 
-                if (vic.FriendlyName == "M1" || vic.FriendlyName == "M1IP") {
-                    loadoutManager.LoadedAmmoTypes[0] = clip_codex_m774;
-                    ammo_clip_types = new AmmoType.AmmoClip[] {clip_codex_m774.ClipType, clip_codex_m456.ClipType};
+                if (name == "M1" || name == "M1IP") {
+                    AmmoClipCodexScriptable ap = ap_rounds[name == "M1" ? m1_ap.Value : m1ip_ap.Value];
+                    loadoutManager.LoadedAmmoTypes[0] = ap;
+                    ammo_clip_types = new AmmoType.AmmoClip[] {ap.ClipType, clip_codex_m456.ClipType};
                     total_racks = 3; 
                 }
 
