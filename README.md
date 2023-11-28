@@ -1,5 +1,5 @@
 # US Reduced Lethality
-Gives M1/IPs and M60A1/3s weaker ammunition. Choices are: M774, M735, and M392A2.
+Gives M1/IPs and M60A1/3s weaker ammunition. Features M774 APFSDS, M735 APFSDS, M392A2 APDS, and M393A2 HEP. Which AP rounds are used can be customized. 
 
 # Default loadouts
 
