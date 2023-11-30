@@ -14,7 +14,7 @@ using GHPC.Vehicle;
 using GHPC.Camera;
 using GHPC.Player;
 
-[assembly: MelonInfo(typeof(USReducedLethalityMod), "US Reduced Lethality", "1.1.1", "ATLAS")]
+[assembly: MelonInfo(typeof(USReducedLethalityMod), "US Reduced Lethality", "1.1.2", "ATLAS")]
 [assembly: MelonGame("Radian Simulations LLC", "GHPC")]
 
 namespace USReducedLethality
@@ -81,11 +81,11 @@ namespace USReducedLethality
             CameraSlot cam = (CameraSlot)currentCamSlot.GetValue(camera_manager);
 
             if (cam == null) return;
-            if (cam.name != "Aux sight M105D") return;
+            if (cam.name != "Aux sight M105D" && cam.name != "Aux sight (GAS)") return;
 
             AmmoType currentAmmo = player_manager.CurrentPlayerWeapon.FCS.CurrentAmmoType;
-
-            if (currentAmmo.Name != "M392A2 APDS-T" && currentAmmo.Name != "M393A2 HEP-T") return;
+            string[] valid_ammo = new string[] {"M392A2 APDS-T", "M393A2 HEP-T", "M735 APFSDS-T"};  
+            if (!valid_ammo.Contains(current_ammo.Name)) return;
 
             GameObject reticle = cam.transform.GetChild(0).gameObject;
 
