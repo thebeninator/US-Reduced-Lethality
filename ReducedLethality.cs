@@ -83,7 +83,7 @@ namespace USReducedLethality
             if (cam == null) return;
             if (cam.name != "Aux sight M105D" && cam.name != "Aux sight (GAS)") return;
 
-            AmmoType currentAmmo = player_manager.CurrentPlayerWeapon.FCS.CurrentAmmoType;
+            AmmoType current_ammo = player_manager.CurrentPlayerWeapon.FCS.CurrentAmmoType;
             string[] valid_ammo = new string[] {"M392A2 APDS-T", "M393A2 HEP-T", "M735 APFSDS-T"};  
             if (!valid_ammo.Contains(current_ammo.Name)) return;
 
