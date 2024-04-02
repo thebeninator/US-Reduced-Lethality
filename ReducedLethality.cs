@@ -13,79 +13,76 @@ using System.Reflection;
 using GHPC.Vehicle;
 using GHPC.Camera;
 using GHPC.Player;
-
-[assembly: MelonInfo(typeof(USReducedLethalityMod), "US Reduced Lethality", "1.1.2", "ATLAS")]
-[assembly: MelonGame("Radian Simulations LLC", "GHPC")]
+using HarmonyLib;
+using GHPC.Equipment;
+using GHPC.State;
+using MelonLoader.Utils;
+using System.IO;
+using Thermals;
+using System.Collections;
 
 namespace USReducedLethality
 {
-    public class USReducedLethalityMod : MelonMod
+    public class ReducedLethality : MelonMod
     {
-        MelonPreferences_Category cfg;
-        MelonPreferences_Entry<string> m60a1_ap;
-        MelonPreferences_Entry<string> m60a3_ap;
-        MelonPreferences_Entry<string> m1_ap;
-        MelonPreferences_Entry<string> m1ip_ap;
-
-        private GameObject[] vic_gos;
-        private GameObject game_manager;
-        private PlayerInput player_manager;
-        private CameraManager camera_manager;
-        private string[] invalid_scenes = new string[] {"MainMenu2_Scene", "LOADER_MENU", "LOADER_INITIAL", "t64_menu"};
+        static MelonPreferences_Entry<string> m60a1_ap;
+        static MelonPreferences_Entry<string> m60a3_ap;
+        static MelonPreferences_Entry<string> m1_ap;
+        static MelonPreferences_Entry<string> m1ip_ap;
 
         // m392 
-        private AmmoClipCodexScriptable clip_codex_m392;
-        private AmmoType.AmmoClip clip_m392;
-        private AmmoCodexScriptable ammo_codex_m392;
-        private AmmoType ammo_m392;
+        static AmmoClipCodexScriptable clip_codex_m392;
+        static AmmoType.AmmoClip clip_m392;
+        static AmmoCodexScriptable ammo_codex_m392;
+        static AmmoType ammo_m392;
 
         // m735
-        private AmmoClipCodexScriptable clip_codex_m735;
-        private AmmoType.AmmoClip clip_m735;
-        private AmmoCodexScriptable ammo_codex_m735;
-        private AmmoType ammo_m735;
+        static AmmoClipCodexScriptable clip_codex_m735;
+        static AmmoType.AmmoClip clip_m735;
+        static AmmoCodexScriptable ammo_codex_m735;
+        static AmmoType ammo_m735;
 
         // hep 
-        private AmmoClipCodexScriptable clip_codex_m393;
-        private AmmoType.AmmoClip clip_m393;
-        private AmmoCodexScriptable ammo_codex_m393;
-        private AmmoType ammo_m393;
+        static AmmoClipCodexScriptable clip_codex_m393;
+        static AmmoType.AmmoClip clip_m393;
+        static AmmoCodexScriptable ammo_codex_m393;
+        static AmmoType ammo_m393;
 
-        private AmmoType ammo_m833;
-        private AmmoType ammo_m456;
+        static AmmoType ammo_m833;
+        static AmmoType ammo_m456;
 
-        private GameObject ammo_m392_vis = null;
-        private GameObject ammo_m393_vis = null;
-        private GameObject ammo_m735_vis = null;
+        static GameObject ammo_m392_vis = null;
+        static GameObject ammo_m393_vis = null;
+        static GameObject ammo_m735_vis = null;
 
         // m774
-        private AmmoClipCodexScriptable clip_codex_m774;
+        static AmmoClipCodexScriptable clip_codex_m774;
+        static AmmoClipCodexScriptable clip_codex_m833;
 
+        static Dictionary<string, AmmoClipCodexScriptable> ap_rounds;
+        static string[] gas_valid_ammo = new string[] { "M392A2 APDS-T", "M393A2 HEP-T", "M735 APFSDS-T" };
 
-        public override void OnInitializeMelon()
+        public static void Config(MelonPreferences_Category cfg)
         {
-            cfg = MelonPreferences.CreateCategory("US Reduced Lethality");
             m60a1_ap = cfg.CreateEntry<string>("M60A1 AP", "M392");
-            m60a1_ap.Description = "AP round used by M60s and M1s: M774, M735, M392";
+            m60a1_ap.Description = "AP round used by M60s and M1s: M833, M774, M735, M392";
             m60a3_ap = cfg.CreateEntry<string>("M60A3 AP", "M392");
             m1_ap = cfg.CreateEntry<string>("M1 AP", "M774");
             m1ip_ap = cfg.CreateEntry<string>("M1IP AP", "M774");
         }
 
         // fix for GAS reticle
-        public override void OnUpdate()
+        public static void Update()
         {
-            if (game_manager == null) return;
+            if (USReducedLethalityMod.game_manager == null) return;
 
-            FieldInfo currentCamSlot = typeof(CameraManager).GetField("_currentCamSlot", BindingFlags.Instance | BindingFlags.NonPublic);
-            CameraSlot cam = (CameraSlot)currentCamSlot.GetValue(camera_manager);
+            CameraSlot cam = USReducedLethalityMod.cam_manager._currentCamSlot;
 
             if (cam == null) return;
             if (cam.name != "Aux sight M105D" && cam.name != "Aux sight (GAS)") return;
 
-            AmmoType current_ammo = player_manager.CurrentPlayerWeapon.FCS.CurrentAmmoType;
-            string[] valid_ammo = new string[] {"M392A2 APDS-T", "M393A2 HEP-T", "M735 APFSDS-T"};  
-            if (!valid_ammo.Contains(current_ammo.Name)) return;
+            AmmoType current_ammo = USReducedLethalityMod.player_manager.CurrentPlayerWeapon.FCS.CurrentAmmoType;
+            if (!gas_valid_ammo.Contains(current_ammo.Name)) return;
 
             GameObject reticle = cam.transform.GetChild(0).gameObject;
 
@@ -95,41 +92,90 @@ namespace USReducedLethality
             }
         }
 
-        public override async void OnSceneWasInitialized(int buildIndex, string sceneName)
+        public static IEnumerator Convert(GameState _)
         {
-            if (invalid_scenes.Contains(sceneName)) return; 
-            vic_gos = GameObject.FindGameObjectsWithTag("Vehicle");
-
-            while (vic_gos.Length == 0)
+            foreach (GameObject vic_go in USReducedLethalityMod.vic_gos)
             {
-                vic_gos = GameObject.FindGameObjectsWithTag("Vehicle");
-                await Task.Delay(1);
+                Vehicle vic = vic_go.GetComponent<Vehicle>();
+
+                if (vic == null) continue;
+                if (vic_go.GetComponent<Util.AlreadyConverted>() != null) continue;
+                if (!new string[] { "M60A3 TTS", "M60A1 RISE (Passive)", "M1", "M1IP" }.Contains(vic.FriendlyName)) continue;
+
+                vic_go.AddComponent<Util.AlreadyConverted>();
+                string name = vic.FriendlyName;
+
+                WeaponsManager weaponsManager = vic.GetComponent<WeaponsManager>();
+                WeaponSystemInfo mainGunInfo = weaponsManager.Weapons[0];
+                WeaponSystem mainGun = mainGunInfo.Weapon;
+
+                LoadoutManager loadoutManager = vic.GetComponent<LoadoutManager>();
+                AmmoType.AmmoClip[] ammo_clip_types = new AmmoType.AmmoClip[] { };
+                int total_racks = 5;
+
+                AmmoClipCodexScriptable clip_codex_m456 = loadoutManager.LoadedAmmoTypes[1];
+
+                if (name == "M60A3 TTS" || name == "M60A1 RISE (Passive)")
+                {
+                    AmmoClipCodexScriptable ap = ap_rounds[name == "M60A3 TTS" ? m60a3_ap.Value : m60a1_ap.Value];
+
+                    loadoutManager.TotalAmmoCounts = new int[] { 30, 23, 10 };
+                    loadoutManager.LoadedAmmoTypes = new AmmoClipCodexScriptable[] { ap, clip_codex_m456, clip_codex_m393 };
+                    ammo_clip_types = new AmmoType.AmmoClip[] { ap.ClipType, clip_codex_m456.ClipType, clip_m393 };
+
+                    loadoutManager._totalAmmoTypes = 3;
+                }
+
+                if (name == "M1" || name == "M1IP")
+                {
+                    AmmoClipCodexScriptable ap = ap_rounds[name == "M1" ? m1_ap.Value : m1ip_ap.Value];
+
+                    loadoutManager.LoadedAmmoTypes[0] = ap;
+                    ammo_clip_types = new AmmoType.AmmoClip[] { ap.ClipType, clip_codex_m456.ClipType };
+                    total_racks = 3;
+                }
+
+                for (int i = 0; i < total_racks; i++)
+                {
+                    GHPC.Weapons.AmmoRack rack = loadoutManager.RackLoadouts[i].Rack;
+                    rack.ClipTypes = ammo_clip_types;
+                    Util.EmptyRack(rack);
+                }
+
+                loadoutManager.SpawnCurrentLoadout();
+                mainGun.Feed.AmmoTypeInBreech = null;
+                mainGun.Feed.Start();
+                loadoutManager.RegisterAllBallistics();
             }
 
-            await Task.Delay(3000);
+            yield break;
+        }
 
-            game_manager = GameObject.Find("_APP_GHPC_");
-            camera_manager = game_manager.GetComponent<CameraManager>();
-            player_manager = game_manager.GetComponent<PlayerInput>();
-
+        public static void Init()
+        {
             if (ammo_m393 == null)
             {
                 foreach (AmmoCodexScriptable s in Resources.FindObjectsOfTypeAll(typeof(AmmoCodexScriptable)))
                 {
                     if (s.AmmoType.Name == "M833 APFSDS-T") ammo_m833 = s.AmmoType;
                     if (s.AmmoType.Name == "M456 HEAT-FS-T") ammo_m456 = s.AmmoType;
+
+                    if (ammo_m833 != null && ammo_m456 != null) break;
                 }
 
                 foreach (AmmoClipCodexScriptable s in Resources.FindObjectsOfTypeAll(typeof(AmmoClipCodexScriptable)))
                 {
-                    if (s.name == "clip_M774") clip_codex_m774 = s;
+                    if (s.name == "clip_M774") { clip_codex_m774 = s;}
+                    if (s.name == "clip_M833") { clip_codex_m833 = s;}
+
+                    if (clip_codex_m774 != null && clip_codex_m833 != null) break;
                 }
 
                 // m392 
                 ammo_m392 = new AmmoType();
                 Util.ShallowCopy(ammo_m392, ammo_m833);
                 ammo_m392.Name = "M392A2 APDS-T";
-                ammo_m392.RhaPenetration = 310f;
+                ammo_m392.RhaPenetration = 330f;
                 ammo_m392.MuzzleVelocity = 1478f;
                 ammo_m392.Mass = 4.04f;
 
@@ -155,7 +201,7 @@ namespace USReducedLethality
                 ammo_m393.MuzzleVelocity = 731.5f;
                 ammo_m393.Mass = 11.3f;
                 ammo_m393.TntEquivalentKg = 3.26f;
-                ammo_m393.CertainRicochetAngle = 5f; 
+                ammo_m393.CertainRicochetAngle = 5f;
                 ammo_m393.MinSpallRha = 20f;
                 ammo_m393.MaxSpallRha = 50f;
                 ammo_m393.Coeff = 0.26f;
@@ -164,12 +210,12 @@ namespace USReducedLethality
                 ammo_m393.ImpactFuseTime = 0.005f;
                 ammo_m393.SpallMultiplier = 2;
                 ammo_m393.DetonateSpallCount = 80;
-                ammo_m393.ForcedSpallAngle = 0; 
+                ammo_m393.ForcedSpallAngle = 0;
                 ammo_m393.ImpactTypeFuzed = ParticleEffectsManager.EffectVisualType.MainGunImpactHighExplosive;
                 ammo_m393.ImpactTypeFuzedTerrain = ParticleEffectsManager.EffectVisualType.MainGunImpactExplosiveTerrain;
                 ammo_m393.ImpactTypeUnfuzed = ParticleEffectsManager.EffectVisualType.MainGunImpactHighExplosive;
                 ammo_m393.ImpactTypeUnfuzedTerrain = ParticleEffectsManager.EffectVisualType.MainGunImpactExplosiveTerrain;
-                ammo_m393.ShortName = AmmoType.AmmoShortName.He; 
+                ammo_m393.ShortName = AmmoType.AmmoShortName.He;
 
                 ammo_codex_m393 = ScriptableObject.CreateInstance<AmmoCodexScriptable>();
                 ammo_codex_m393.AmmoType = ammo_m393;
@@ -206,90 +252,35 @@ namespace USReducedLethality
                 clip_codex_m735 = ScriptableObject.CreateInstance<AmmoClipCodexScriptable>();
                 clip_codex_m735.name = "clip_m735";
                 clip_codex_m735.ClipType = clip_m735;
+
+                ammo_m392_vis = GameObject.Instantiate(ammo_m833.VisualModel);
+                ammo_m392_vis.name = "M392 visual";
+                ammo_m392.VisualModel = ammo_m392_vis;
+                ammo_m392.VisualModel.GetComponent<AmmoStoredVisual>().AmmoType = ammo_m392;
+                ammo_m392.VisualModel.GetComponent<AmmoStoredVisual>().AmmoScriptable = ammo_codex_m392;
+
+                ammo_m735_vis = GameObject.Instantiate(ammo_m833.VisualModel);
+                ammo_m735_vis.name = "M735 visual";
+                ammo_m735.VisualModel = ammo_m735_vis;
+                ammo_m735.VisualModel.GetComponent<AmmoStoredVisual>().AmmoType = ammo_m735;
+                ammo_m735.VisualModel.GetComponent<AmmoStoredVisual>().AmmoScriptable = ammo_codex_m735;
+
+                ammo_m393_vis = GameObject.Instantiate(ammo_m456.VisualModel);
+                ammo_m393_vis.name = "M393 visual";
+                ammo_m393.VisualModel = ammo_m393_vis;
+                ammo_m393.VisualModel.GetComponent<AmmoStoredVisual>().AmmoType = ammo_m393;
+                ammo_m393.VisualModel.GetComponent<AmmoStoredVisual>().AmmoScriptable = ammo_codex_m393;
             }
 
-            var ap_rounds = new Dictionary<string, AmmoClipCodexScriptable>() {
+            ap_rounds = new Dictionary<string, AmmoClipCodexScriptable>()
+            {
+                ["M833"] = clip_codex_m833,
                 ["M774"] = clip_codex_m774,
                 ["M735"] = clip_codex_m735,
                 ["M392"] = clip_codex_m392
             };
 
-            foreach (GameObject vic_go in vic_gos)
-            {
-                Vehicle vic = vic_go.GetComponent<Vehicle>();
-
-                if (vic == null) continue;
-                if (!new string[] {"M60A3 TTS", "M60A1 RISE (Passive)", "M1", "M1IP"}.Contains(vic.FriendlyName)) continue;
-
-                if (ammo_m392_vis == null)
-                {
-                    ammo_m392_vis = GameObject.Instantiate(ammo_m833.VisualModel);
-                    ammo_m392_vis.name = "M392 visual";
-                    ammo_m392.VisualModel = ammo_m392_vis;
-                    ammo_m392.VisualModel.GetComponent<AmmoStoredVisual>().AmmoType = ammo_m392;
-                    ammo_m392.VisualModel.GetComponent<AmmoStoredVisual>().AmmoScriptable = ammo_codex_m392;
-
-                    ammo_m735_vis = GameObject.Instantiate(ammo_m833.VisualModel);
-                    ammo_m735_vis.name = "M735 visual";
-                    ammo_m735.VisualModel = ammo_m735_vis;
-                    ammo_m735.VisualModel.GetComponent<AmmoStoredVisual>().AmmoType = ammo_m735;
-                    ammo_m735.VisualModel.GetComponent<AmmoStoredVisual>().AmmoScriptable = ammo_codex_m735;
-
-                    ammo_m393_vis = GameObject.Instantiate(ammo_m456.VisualModel);
-                    ammo_m393_vis.name = "M393 visual";
-                    ammo_m393.VisualModel = ammo_m393_vis;
-                    ammo_m393.VisualModel.GetComponent<AmmoStoredVisual>().AmmoType = ammo_m393;
-                    ammo_m393.VisualModel.GetComponent<AmmoStoredVisual>().AmmoScriptable = ammo_codex_m393;
-                }
-
-                string name = vic.FriendlyName;
-
-                WeaponsManager weaponsManager = vic.GetComponent<WeaponsManager>();
-                WeaponSystemInfo mainGunInfo = weaponsManager.Weapons[0];
-                WeaponSystem mainGun = mainGunInfo.Weapon;
-
-                LoadoutManager loadoutManager = vic.GetComponent<LoadoutManager>();
-                AmmoType.AmmoClip[] ammo_clip_types = new AmmoType.AmmoClip[] { };
-                int total_racks = 5;
-
-                AmmoClipCodexScriptable clip_codex_m456 = loadoutManager.LoadedAmmoTypes[1];
-
-                if (name == "M60A3 TTS" || name == "M60A1 RISE (Passive)") {
-                    AmmoClipCodexScriptable ap = ap_rounds[name == "M60A3 TTS" ? m60a3_ap.Value : m60a1_ap.Value];
-                    loadoutManager.TotalAmmoCounts = new int[] {30, 23, 10};
-                    loadoutManager.LoadedAmmoTypes = new AmmoClipCodexScriptable[] {ap, clip_codex_m456, clip_codex_m393};
-                    ammo_clip_types = new AmmoType.AmmoClip[] {ap.ClipType, clip_codex_m456.ClipType, clip_m393};
-
-                    FieldInfo total_ammo_types = typeof(LoadoutManager).GetField("_totalAmmoTypes", BindingFlags.NonPublic | BindingFlags.Instance);
-                    total_ammo_types.SetValue(loadoutManager, 3);
-                }
-
-                if (name == "M1" || name == "M1IP") {
-                    AmmoClipCodexScriptable ap = ap_rounds[name == "M1" ? m1_ap.Value : m1ip_ap.Value];
-                    loadoutManager.LoadedAmmoTypes[0] = ap;
-                    ammo_clip_types = new AmmoType.AmmoClip[] {ap.ClipType, clip_codex_m456.ClipType};
-                    total_racks = 3; 
-                }
-
-                for (int i = 0; i < total_racks; i++)
-                {
-                    GHPC.Weapons.AmmoRack rack = loadoutManager.RackLoadouts[i].Rack;
-                    rack.ClipTypes = ammo_clip_types;
-                    Util.EmptyRack(rack);
-                }
-
-                loadoutManager.SpawnCurrentLoadout();
-
-                PropertyInfo roundInBreech = typeof(AmmoFeed).GetProperty("AmmoTypeInBreech");
-                roundInBreech.SetValue(mainGun.Feed, null);
-
-                MethodInfo refreshBreech = typeof(AmmoFeed).GetMethod("Start", BindingFlags.Instance | BindingFlags.NonPublic); 
-                refreshBreech.Invoke(mainGun.Feed, new object[] {});
-
-                MethodInfo registerAllBallistics = typeof(LoadoutManager).GetMethod("RegisterAllBallistics", BindingFlags.Instance | BindingFlags.NonPublic);
-                registerAllBallistics.Invoke(loadoutManager, new object[] {});
-
-            }
+            StateController.RunOrDefer(GameState.GameReady, new GameStateEventHandler(Convert), GameStatePriority.Medium);
         }
     }
 }
