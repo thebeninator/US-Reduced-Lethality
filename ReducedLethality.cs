@@ -30,6 +30,11 @@ namespace USReducedLethality
         static MelonPreferences_Entry<string> m1_ap;
         static MelonPreferences_Entry<string> m1ip_ap;
 
+        static MelonPreferences_Entry<string> m60a1_heat;
+        static MelonPreferences_Entry<string> m60a3_heat;
+        static MelonPreferences_Entry<string> m1_heat;
+        static MelonPreferences_Entry<string> m1ip_heat;
+
         // m392 
         static AmmoClipCodexScriptable clip_codex_m392;
         static AmmoType.AmmoClip clip_m392;
@@ -59,6 +64,9 @@ namespace USReducedLethality
         static AmmoClipCodexScriptable clip_codex_m774;
         static AmmoClipCodexScriptable clip_codex_m833;
 
+        static AmmoClipCodexScriptable clip_codex_m456;
+
+
         static Dictionary<string, AmmoClipCodexScriptable> ap_rounds;
         static string[] gas_valid_ammo = new string[] { "M392A2 APDS-T", "M393A2 HEP-T", "M735 APFSDS-T" };
 
@@ -69,6 +77,12 @@ namespace USReducedLethality
             m60a3_ap = cfg.CreateEntry<string>("M60A3 AP", "M392");
             m1_ap = cfg.CreateEntry<string>("M1 AP", "M774");
             m1ip_ap = cfg.CreateEntry<string>("M1IP AP", "M774");
+
+            m60a1_heat = cfg.CreateEntry<string>("M60A1 HEAT", "M456");
+            m60a1_heat.Description = "HEAT round used by M60s and M1s: M456, M456A2";
+            m60a3_heat = cfg.CreateEntry<string>("M60A3 HEAT", "M456");
+            m1_heat = cfg.CreateEntry<string>("M1 HEAT", "M456A2");
+            m1ip_heat = cfg.CreateEntry<string>("M1IP HEAT", "M456A2");
         }
 
         // fix for GAS reticle
@@ -113,15 +127,17 @@ namespace USReducedLethality
                 AmmoType.AmmoClip[] ammo_clip_types = new AmmoType.AmmoClip[] { };
                 int total_racks = 5;
 
-                AmmoClipCodexScriptable clip_codex_m456 = loadoutManager.LoadedAmmoTypes[1];
+                AmmoClipCodexScriptable clip_codex_m456a2 = loadoutManager.LoadedAmmoTypes[1];
 
                 if (name == "M60A3 TTS" || name == "M60A1 RISE (Passive)")
                 {
                     AmmoClipCodexScriptable ap = ap_rounds[name == "M60A3 TTS" ? m60a3_ap.Value : m60a1_ap.Value];
+                    bool use_m456 = (name == "M60A3 TTS" ? m60a3_heat.Value : m60a1_heat.Value) == "M456";
+                    AmmoClipCodexScriptable heat = use_m456 ? clip_codex_m456 : clip_codex_m456a2;
 
                     loadoutManager.TotalAmmoCounts = new int[] { 30, 23, 10 };
-                    loadoutManager.LoadedAmmoTypes = new AmmoClipCodexScriptable[] { ap, clip_codex_m456, clip_codex_m393 };
-                    ammo_clip_types = new AmmoType.AmmoClip[] { ap.ClipType, clip_codex_m456.ClipType, clip_m393 };
+                    loadoutManager.LoadedAmmoTypes = new AmmoClipCodexScriptable[] { ap, heat, clip_codex_m393 };
+                    ammo_clip_types = new AmmoType.AmmoClip[] { ap.ClipType, heat.ClipType, clip_m393 };
 
                     loadoutManager._totalAmmoTypes = 3;
                 }
@@ -129,9 +145,11 @@ namespace USReducedLethality
                 if (name == "M1" || name == "M1IP")
                 {
                     AmmoClipCodexScriptable ap = ap_rounds[name == "M1" ? m1_ap.Value : m1ip_ap.Value];
+                    bool use_m456 = (name == "M1" ? m1_heat.Value : m1ip_heat.Value) == "M456";
+                    AmmoClipCodexScriptable heat = use_m456 ? clip_codex_m456 : clip_codex_m456a2;
 
-                    loadoutManager.LoadedAmmoTypes[0] = ap;
-                    ammo_clip_types = new AmmoType.AmmoClip[] { ap.ClipType, clip_codex_m456.ClipType };
+                    loadoutManager.LoadedAmmoTypes = new AmmoClipCodexScriptable[] { ap, heat };
+                    ammo_clip_types = new AmmoType.AmmoClip[] { ap.ClipType, heat.ClipType };
                     total_racks = 3;
                 }
 
@@ -167,8 +185,9 @@ namespace USReducedLethality
                 {
                     if (s.name == "clip_M774") { clip_codex_m774 = s;}
                     if (s.name == "clip_M833") { clip_codex_m833 = s;}
+                    if (s.name == "clip_M456") { clip_codex_m456 = s; }
 
-                    if (clip_codex_m774 != null && clip_codex_m833 != null) break;
+                    if (clip_codex_m774 != null && clip_codex_m833 != null && clip_codex_m456 != null) break;
                 }
 
                 // m392 
@@ -211,10 +230,7 @@ namespace USReducedLethality
                 ammo_m393.SpallMultiplier = 2;
                 ammo_m393.DetonateSpallCount = 80;
                 ammo_m393.ForcedSpallAngle = 0;
-                ammo_m393.ImpactTypeFuzed = ParticleEffectsManager.EffectVisualType.MainGunImpactHighExplosive;
-                ammo_m393.ImpactTypeFuzedTerrain = ParticleEffectsManager.EffectVisualType.MainGunImpactExplosiveTerrain;
-                ammo_m393.ImpactTypeUnfuzed = ParticleEffectsManager.EffectVisualType.MainGunImpactHighExplosive;
-                ammo_m393.ImpactTypeUnfuzedTerrain = ParticleEffectsManager.EffectVisualType.MainGunImpactExplosiveTerrain;
+                ammo_m393.ImpactEffectDescriptor.ImpactCategory = ParticleEffectsManager.Category.HighExplosive;
                 ammo_m393.ShortName = AmmoType.AmmoShortName.He;
 
                 ammo_codex_m393 = ScriptableObject.CreateInstance<AmmoCodexScriptable>();

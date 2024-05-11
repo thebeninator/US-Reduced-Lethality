@@ -17,7 +17,7 @@ using HarmonyLib;
 using GHPC.State;
 using System.Collections;
 
-[assembly: MelonInfo(typeof(USReducedLethalityMod), "US Reduced Lethality", "1.1.3", "ATLAS")]
+[assembly: MelonInfo(typeof(USReducedLethalityMod), "US Reduced Lethality", "1.1.4", "ATLAS")]
 [assembly: MelonGame("Radian Simulations LLC", "GHPC")]
 
 namespace USReducedLethality
